@@ -8,7 +8,7 @@ namespace LML.GUI
     public partial class Form_Overview : Form
     {
         #region Constants
-        private static readonly List<string> DefaultFilterOptions = new List<string> { "All", "Unknown Artist", "Not Local" };
+        private static readonly List<string> DefaultFilterOptions = new List<string> { "All", "Unknown Artist", "Not Local", "Not In Playlist" };
         private readonly List<ToolStripItem> ToolStripsToEnableOnOpen;
         #endregion
 
@@ -529,11 +529,10 @@ namespace LML.GUI
         private async Task EditFilter(string editName)
         {
             IFilter? editFilter = null;
-            if (editName.StartsWith("[") && editName.EndsWith("]"))
+            if (editName != "")
             {
-                string name = editName.Substring(1, editName.Length - 2);
-                INamedFilter? namedFilter = (await mediaLibraryService!.GetFiltersAsync()).ToList().Find(f => f.Name == name);
-                filter = namedFilter?.Filter;
+                INamedFilter? namedFilter = (await mediaLibraryService!.GetFiltersAsync()).ToList().Find(f => f.Name == editName);
+                editFilter = namedFilter?.Filter;
             }
 
             // open form
@@ -546,6 +545,11 @@ namespace LML.GUI
             {
                 await mediaLibraryService!.AddFilterAsync(f.FilterName, f.Filter!);
                 await ReloadFilters($"[{f.FilterName}]");
+            }
+            else
+            {
+                await mediaLibraryService!.DeleteFilterAsync(f.FilterName);
+                await mediaLibraryService!.AddFilterAsync(f.FilterName, f.Filter!);
             }
             await FilterMedia();
 
@@ -578,6 +582,11 @@ namespace LML.GUI
 
                 case "Not Local":
                     filter = new Filter_not(new Filter_Bool(MediaProperty.Local));
+                    filterFound = true;
+                    break;
+
+                case "Not In Playlist":
+                    filter = new Filter_not(new Filter_Bool(MediaProperty.InPlaylist));
                     filterFound = true;
                     break;
 

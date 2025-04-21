@@ -56,6 +56,7 @@ namespace LML.Core.Filters
                 MediaProperty.Audio => mediaFile.Type == MediaType.Audio,
                 MediaProperty.Video => mediaFile.Type == MediaType.Video,
                 MediaProperty.UnknownArtist => mediaFile.Artists.Count == 0 || mediaFile.Artists[0] == "" || mediaFile.Artists[0] == "???",
+                MediaProperty.InPlaylist => mediaFile.IsInPlaylist,
 
                 _ => null
             };
@@ -93,6 +94,7 @@ namespace LML.Core.Filters
                 MediaProperty.Audio => MediaPropertyType.Boolean,
                 MediaProperty.Video => MediaPropertyType.Boolean,
                 MediaProperty.UnknownArtist => MediaPropertyType.Boolean,
+                MediaProperty.InPlaylist => MediaPropertyType.Boolean,
 
                 _ => null
             };
@@ -125,6 +127,7 @@ namespace LML.Core.Filters
                 MediaProperty.Audio => "audio",
                 MediaProperty.Video => "video",
                 MediaProperty.UnknownArtist => "unknownArtist",
+                MediaProperty.InPlaylist => "inPlaylist",
 
                 _ => null
             };
@@ -158,6 +161,7 @@ namespace LML.Core.Filters
                 "audio" => MediaProperty.Audio,
                 "video" => MediaProperty.Video,
                 "unknownArtist" => MediaProperty.UnknownArtist,
+                "inPlaylist" => MediaProperty.InPlaylist,
 
                 _ => null
             };

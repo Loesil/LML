@@ -31,7 +31,7 @@ namespace LML.Core.Filters
         }
 
         /// <inheritdoc/>
-        public override string GetFilterDescription()
+        public override string GetFilterDescription(IFilter? parentFilter = null)
         {
             return _isAudio ? "audio" : "video";
         }

@@ -7,6 +7,8 @@ namespace LML.Core.Filters
     /// </summary>
     public class Filter_and : Filter_Base
     {
+        public const string Operator = "&&";
+
         private readonly List<IFilter> _filters;
 
         /// <summary>
@@ -37,18 +39,14 @@ namespace LML.Core.Filters
         }
 
         /// <inheritdoc/>
-        public override string GetFilterDescription()
+        public override string GetFilterDescription(IFilter? parentFilter = null)
         {
-            if (_filters.Count == 0)
-            {
-                return "";
-            }
-            else if (_filters.Count == 1)
-            {
-                return _filters[0].GetFilterDescription();
-            }
+            if (_filters.Count <= 1)
+                return _filters.Count == 0 ? "" : _filters[0].GetFilterDescription();
 
-            return "(" + string.Join(" & ", _filters.Select(f => f.GetFilterDescription())) + ")";
+            bool parenthesis = false;
+            string ret = string.Join($" {Operator} ", _filters.Select(f => f.GetFilterDescription(this)));
+            return parenthesis ? "(" + ret + ")" : ret;
         }
     }
 }

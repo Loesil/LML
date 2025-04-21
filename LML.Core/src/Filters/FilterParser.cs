@@ -1,4 +1,4 @@
-using Sprache;
+﻿using Sprache;
 using System.Linq.Expressions;
 using LML.Core.Models;
 
@@ -7,73 +7,110 @@ namespace LML.Core.Filters
     public static class FilterParser
     {
         #region Parser Components
-        // identifier (all words)
+        #region Literals
+        // String literal (single or double quoted)
+        private static readonly Parser<string> StringLiteral =
+            from open in Parse.Char('"').Or(Parse.Char('\''))
+            from content in Parse.CharExcept(open).Many().Text()
+            from close in Parse.Char(open)
+            select open + content + open; // include quotes
+
+        // Number literal
+        private static readonly Parser<int> NumberLiteral =
+            Parse.Number.Select(int.Parse);
+
+        // Value: either string or number
+        private static readonly Parser<object> Value =
+            (
+                StringLiteral.Select(x => (object)x)
+                .Or(NumberLiteral.Select(x => (object)x))
+            )
+            .Token();
+        #endregion
+
+        #region Identifiers and Properties
+        // Identifier (letters, digits, underscores)
         private static readonly Parser<string> Identifier =
             from first in Parse.Letter.Or(Parse.Char('_'))
             from rest in Parse.LetterOrDigit.Or(Parse.Char('_')).Many().Text()
             select first + rest;
 
-        // string literal (with " or ')
-        private static readonly Parser<string> StringLiteral =
-            from open in Parse.Char('"').Or(Parse.Char('\''))
-            from content in Parse.CharExcept(open).Many().Text()
-            from close in Parse.Char(open)
-            select open + content + open;
-
-        // whitespace (space, tab, newline, carriage return)
-        private static readonly Parser<char> WhitespaceChar =
-            Parse.Char(' ').Or(Parse.Char('\t')).Or(Parse.Char('\n')).Or(Parse.Char('\r'));
-
-        // optional whitespace (zero or more whitespace characters)
-        private static readonly Parser<string> OptionalWhitespace =
-            WhitespaceChar.Many().Text();
-
-        // operator (==, !=, <=, >=, <, >)
-        private static readonly Parser<ExpressionType> Operator =
-            Parse.String("<=").Return(ExpressionType.LessThanOrEqual)
-            .Or(Parse.String(">=").Return(ExpressionType.GreaterThanOrEqual))
-            .Or(Parse.String("==").Return(ExpressionType.Equal))
-            .Or(Parse.String("!=").Return(ExpressionType.NotEqual))
-            .Or(Parse.String("<").Return(ExpressionType.LessThan))
-            .Or(Parse.String(">").Return(ExpressionType.GreaterThan));
-
-        // logical operator (&, |)
-        private static readonly Parser<ExpressionType> LogicalOperator =
-            Parse.String("&").Return(ExpressionType.AndAlso)
-            .Or(Parse.String("|").Return(ExpressionType.OrElse));
-
-        // property (identifier)
+        // Property
         private static readonly Parser<MediaProperty> Property =
-            from identifier in Identifier
-            select CreateMediaProperty(identifier);
+            Identifier.Select(CreateMediaProperty).Token();
+        #endregion
 
-        // value (string literal or number)
-        private static readonly Parser<object> Value =
-            StringLiteral.Select(str => (object)str)
-            .Or(Parse.Number.Select(num => (object)int.Parse(num)));
+        #region Operators and Comparisons
+        // Comparison operator
+        private static readonly Parser<ExpressionType> Operator =
+            (
+                Parse.String("<=").Return(ExpressionType.LessThanOrEqual)
+                .Or(Parse.String(">=").Return(ExpressionType.GreaterThanOrEqual))
+                .Or(Parse.String("==").Return(ExpressionType.Equal))
+                .Or(Parse.String("!=").Return(ExpressionType.NotEqual))
+                .Or(Parse.String("<").Return(ExpressionType.LessThan))
+                .Or(Parse.String(">").Return(ExpressionType.GreaterThan))
+            ).Token();
 
-        // comparison (property operator value)
-        private static readonly Parser<IFilter> Comparison =
-            from left in Property
-            from ws1 in OptionalWhitespace
+        // Property comparison (property operator value)
+        private static readonly Parser<IFilter> PropertyValueComparison =
+            from prop in Property
             from op in Operator
-            from ws2 in OptionalWhitespace
-            from right in Value
-            select CreateComparisonFilter(left, op, right);
+            from val in Value
+            select CreateComparisonFilter(prop, op, val);
+        #endregion
 
-        // factor (comparison or not)
+        #region Parentheses, Not, Atoms
+        // Forward declaration for recursion
+        private static readonly Parser<IFilter> Parentheses =
+            from l in Parse.Char('(').Token()
+            from expr in Parse.Ref(() => Term)
+            from r in Parse.Char(')').Token()
+            select expr;
+
+        // Not (!)
+        private static readonly Parser<IFilter> Not =
+            from not in Parse.Char('!').Token()
+            from expr in Parse.Ref(() => Atom)
+            select new Filter_not(expr);
+
+        // Atom = base building block
+        private static readonly Parser<IFilter> Atom =
+            PropertyValueComparison
+            .Or(Identifier.Select(CreatePropertyFilter));
+
+        // Factor = negation, parentheses, or atom
         private static readonly Parser<IFilter> Factor =
-            Parse.Char('(').Then(_ => Parse.Ref(() => Filter)).Then(e => Parse.Char(')').Return(e))
-            .Or(Parse.Char('!').Then(_ => Parse.Ref(() => Factor)).Select(e => new Filter_not(e)))
-            .Or(Comparison)
-            .Or(Identifier.Select(id => CreatePropertyFilter(id)));
+            Parentheses
+            .Or(Not)
+            .Or(Atom);
+        #endregion
 
-        // term (logical operator factor)
+        #region Logical Expressions
+        private static readonly Parser<ExpressionType> AndOperator =
+            Parse.String(Filter_and.Operator).Token().Return(ExpressionType.AndAlso);
+
+        private static readonly Parser<ExpressionType> OrOperator =
+            Parse.String(Filter_or.Operator).Token().Return(ExpressionType.OrElse);
+
+        // Logical AND
+        private static readonly Parser<IFilter> LogicalAnd =
+            Parse.ChainOperator(AndOperator, Factor, CreateLogicalFilter);
+
+        // Logical OR
+        private static readonly Parser<IFilter> LogicalOr =
+            Parse.ChainOperator(OrOperator, LogicalAnd, CreateLogicalFilter);
+        #endregion
+
         private static readonly Parser<IFilter> Term =
-            Parse.ChainOperator(LogicalOperator, Factor, CreateLogicalFilter);
+            Parentheses
+            .Or(LogicalOr)
+            .Or(Atom);
 
-        // filter (term)
-        private static readonly Parser<IFilter> Filter = Term;
+        #region Entry Point
+        // Entry point parser (consumes entire input)
+        private static readonly Parser<IFilter> Filter = Term.End();
+        #endregion
         #endregion
 
         #region Helper Methods
@@ -105,10 +142,10 @@ namespace LML.Core.Filters
         {
             // get type and values
             MediaPropertyType? type = Filter_Property.PropertyToPropertyType(property);
-            uint? val_uint = (type == MediaPropertyType.Uint ? (uint)(int)right : null);
-            string? val_string = (type == MediaPropertyType.String || type == MediaPropertyType.StringList ? (string)right : null);
+            uint? val_uint = type == MediaPropertyType.Uint ? (uint)(int)right : null;
+            string? val_string = type == MediaPropertyType.String || type == MediaPropertyType.StringList ? (string)right : null;
             string? val_stringText = val_string?.Substring(1, val_string.Length - 2);
-            bool caseSensitive = (val_string != null ? val_string[0] == '\'' : false);
+            bool caseSensitive = val_string != null ? val_string[0] == '"' : false;
 
             return type switch
             {
@@ -149,8 +186,8 @@ namespace LML.Core.Filters
         {
             return op switch
             {
-                ExpressionType.AndAlso => new Filter_and(new[] { left, right }),
-                ExpressionType.OrElse => new Filter_or(new[] { left, right }),
+                ExpressionType.AndAlso => new Filter_and(left, right),
+                ExpressionType.OrElse => new Filter_or(left, right),
                 _ => throw new ArgumentException($"Unsupported logical operator: {op}")
             };
         }
@@ -160,7 +197,16 @@ namespace LML.Core.Filters
         {
             try
             {
-                return Filter.Parse(filterString);
+                var ret = Filter.TryParse(filterString);
+                if (!ret.WasSuccessful)
+                {
+                    throw new ArgumentException(ret.Message);
+                }
+                else if (!ret.Remainder.AtEnd)
+                {
+                    throw new ArgumentException($"Only parsed: {ret.Remainder.Source.Substring(0, ret.Remainder.Position)}");
+                }
+                return ret.Value;
             }
             catch (ParseException ex)
             {

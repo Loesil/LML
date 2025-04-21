@@ -51,7 +51,6 @@ namespace LML.GUI
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-        #endregion
 
         private void Form_Filter_Load(object sender, EventArgs e)
         {
@@ -70,10 +69,17 @@ namespace LML.GUI
                 lv_Info.Items.Add(new ListViewItem(new[]
                 {
                     type.ToString(),
-                    property.ToString(),
+                    Filter_Property.PropertyToName(property)!,
                     allowedOperators[type].ToString()
                 }));
             }
         }
+
+        private void lv_Info_DoubleClick(object sender, EventArgs e)
+        {
+            if (lv_Info.SelectedItems.Count != 1) return;
+            tb_Filter.AppendText(lv_Info.SelectedItems[0].SubItems[1].Text);
+        }
+        #endregion
     }
 }

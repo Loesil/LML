@@ -30,7 +30,8 @@ namespace LML.Core.Filters
         /// <summary>
         /// Gets a human-readable description of the filter.
         /// </summary>
+        /// <param name="parentFilter">The parent filter</param>
         /// <returns>The filter description</returns>
-        string GetFilterDescription();
+        string GetFilterDescription(IFilter? parentFilter = null);
     }
 }

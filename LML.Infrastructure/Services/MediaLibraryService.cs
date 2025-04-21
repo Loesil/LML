@@ -68,12 +68,9 @@ namespace LML.Infrastructure.Services
         #endregion
 
         #region Functions
-        /// <summary>
-        /// Loads the filter from its string representation.
-        /// </summary>
-        public void LoadFilter()
+        public override string ToString()
         {
-
+            return $"Filter: {Name}";
         }
         #endregion
     }
@@ -218,7 +215,8 @@ namespace LML.Infrastructure.Services
             var addedFiles = new List<MediaFile>();
             foreach (var file in files)
             {
-                addedFiles.Add(await AddMediaFileAsync(file, autoExtractMetadata));
+                MediaFile? m = await AddMediaFileAsync(file, autoExtractMetadata);
+                if (m != null) addedFiles.Add(m);
                 processedCount++;
                 progress?.Report((processedCount, totalFiles));
             }
@@ -262,20 +260,27 @@ namespace LML.Infrastructure.Services
         {
             NamedFilter f = new NamedFilter(name, filter);
             _filters.Add(f);
+            NotifyUnsavedChanges();
             return Task.FromResult((INamedFilter)f);
         }
 
         /// <inheritdoc/>
         public Task DeleteFilterAsync(string name)
         {
-            _filters.RemoveAll(f => f.Name == name);
+            if (_filters.RemoveAll(f => f.Name == name) != 0) NotifyUnsavedChanges();
             return Task.CompletedTask;
         }
 
         /// <inheritdoc/>
-        public Task<IEnumerable<INamedFilter>> GetFiltersAsync()
+        public Task<List<INamedFilter>> GetFiltersAsync()
         {
-            return Task.FromResult(_filters.ConvertAll(f => (INamedFilter)f).AsEnumerable());
+            return Task.FromResult(GetFilters());
+        }
+
+        /// <inheritdoc/>
+        public List<INamedFilter> GetFilters()
+        {
+            return _filters.ConvertAll(f => (INamedFilter)f);
         }
         #endregion
 
@@ -570,6 +575,25 @@ namespace LML.Infrastructure.Services
         }
         #endregion
 
+        #region Update
+        /// <inheritdoc/>
+        public void UpdateCollections(MediaFile mediaFile, bool increment)
+        {
+            if (_temporarilyDisableUpdate) return;
+            UpdateMetaInfoDictionary(_albums, mediaFile.Album, increment);
+            mediaFile.Artists.ForEach(i => UpdateMetaInfoDictionary(_artists, i, increment));
+            mediaFile.Genres.ForEach(i => UpdateMetaInfoDictionary(_genres, i, increment));
+            mediaFile.Tags.ForEach(i => UpdateMetaInfoDictionary(_tags, i, increment));
+        }
+
+        /// <inheritdoc/>
+        public void NotifyUnsavedChanges()
+        {
+            if (_temporarilyDisableUpdate) return;
+            UnsavedChanges = true;
+        }
+        #endregion
+
         #region Helpers
         /// <summary>
         /// Builds the organized path for a media file based on the pattern.
@@ -630,23 +654,6 @@ namespace LML.Infrastructure.Services
                 mediaFile.ExtractMetadata();
                 NotifyUnsavedChanges();
             });
-        }
-
-        /// <inheritdoc/>
-        public void UpdateCollections(MediaFile mediaFile, bool increment)
-        {
-            if (_temporarilyDisableUpdate) return;
-            UpdateMetaInfoDictionary(_albums, mediaFile.Album, increment);
-            mediaFile.Artists.ForEach(i => UpdateMetaInfoDictionary(_artists, i, increment));
-            mediaFile.Genres.ForEach(i => UpdateMetaInfoDictionary(_genres, i, increment));
-            mediaFile.Tags.ForEach(i => UpdateMetaInfoDictionary(_tags, i, increment));
-        }
-
-        /// <inheritdoc/>
-        public void NotifyUnsavedChanges()
-        {
-            if (_temporarilyDisableUpdate) return;
-            UnsavedChanges = true;
         }
 
         /// <summary>

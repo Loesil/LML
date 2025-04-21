@@ -94,6 +94,7 @@
             // 
             lv_Info.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lv_Info.Columns.AddRange(new ColumnHeader[] { col_Type, col_Property, col_Operators });
+            lv_Info.FullRowSelect = true;
             lv_Info.GridLines = true;
             lv_Info.Location = new Point(12, 241);
             lv_Info.Name = "lv_Info";
@@ -101,6 +102,7 @@
             lv_Info.TabIndex = 5;
             lv_Info.UseCompatibleStateImageBehavior = false;
             lv_Info.View = View.Details;
+            lv_Info.DoubleClick += lv_Info_DoubleClick;
             // 
             // col_Type
             // 

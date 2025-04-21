@@ -46,7 +46,7 @@ namespace LML.Core.Filters
         }
 
         /// <inheritdoc/>
-        public override string GetFilterDescription()
+        public override string GetFilterDescription(IFilter? parentFilter = null)
         {
             var caseSensitivity = _caseSensitive ? "\"" : "'";
             return $"{PropertyToName(Property)!} == {caseSensitivity}{_value}{caseSensitivity}";

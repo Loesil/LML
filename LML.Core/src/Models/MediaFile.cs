@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using TagLibFile = TagLib.File;
 using System.Diagnostics;
 using LML.Core.Services;
+using LML.Core.Filters;
 
 namespace LML.Core.Models
 {
@@ -84,7 +85,11 @@ namespace LML.Core.Models
         /// <summary>
         /// Whether the artist is unknown.
         /// </summary>
-        UnknownArtist
+        UnknownArtist,
+        /// <summary>
+        /// Whether the file is in a playlist.
+        /// </summary>
+        InPlaylist
     }
 
     /// <summary>
@@ -374,9 +379,18 @@ namespace LML.Core.Models
         public bool IsDuplicate { get; set; }
 
         /// <summary>
-        /// Gets or sets whether this file is in a playlist.
+        /// Gets whether this file is in a playlist (in any filter).
         /// </summary>
-        public bool IsInPlaylist { get; set; }
+        public bool IsInPlaylist
+        {
+            get
+            {
+                List<IFilter> filters = MediaLibraryService.GetFilters().ConvertAll(f => f.Filter!);
+                if (filters.Count == 0) return false;
+                IFilter filter_inPlaylist = new Filter_or(filters.ToArray());
+                return filter_inPlaylist.Apply(this);
+            }
+        }
 
         /// <summary>
         /// Gets whether the file exists on disk.
@@ -511,7 +525,6 @@ namespace LML.Core.Models
             // Relations
             Variations = new List<MediaFile>();
             IsDuplicate = false;
-            IsInPlaylist = false;
         }
         #endregion
 

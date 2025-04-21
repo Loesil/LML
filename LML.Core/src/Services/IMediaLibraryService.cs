@@ -100,7 +100,13 @@ namespace LML.Core.Services
         /// Gets all named filters in the library.
         /// </summary>
         /// <returns>All named filters in the library.</returns>
-        Task<IEnumerable<INamedFilter>> GetFiltersAsync();
+        Task<List<INamedFilter>> GetFiltersAsync();
+
+        /// <summary>
+        /// Gets all named filters in the library.
+        /// </summary>
+        /// <returns>All named filters in the library.</returns>
+        List<INamedFilter> GetFilters();
 
         /// <summary>
         /// Deletes a named filter from the library.
