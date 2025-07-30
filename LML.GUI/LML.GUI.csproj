@@ -6,6 +6,11 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier> <!-- Or win-arm64 / win-x86 depending on your needs -->
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile> <!-- Smaller output -->
   </PropertyGroup>
 
   <ItemGroup>
